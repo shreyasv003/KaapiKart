@@ -17,25 +17,34 @@ const AuthProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    // Check if a token is present in localStorage and validate it
+    // Check if we're on a protected route and user has token
     const token = localStorage.getItem("token");
-    if (token) {
-      // If a token exists, fetch user details
+    const currentPath = window.location.pathname;
+    const isProtectedRoute = !['/login', '/register', '/admin/login', '/'].includes(currentPath);
+    
+    if (token && isProtectedRoute) {
+      // If user has token and is on protected route, assume they're authenticated initially
+      // This prevents loading delays on page reload
+      setAuthState({
+        isAuthenticated: true,
+        token,
+        user: null, // Will be fetched in background
+        loading: false
+      });
+      
+      // Validate token in background without blocking the UI
       axios
         .get(`${API_URL}/auth/verifyToken`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then((response) => {
-          setAuthState({
-            isAuthenticated: true,
-            token,
-            user: response.data.user,
-            loading: false
-          });
+          setAuthState(prev => ({
+            ...prev,
+            user: response.data.user
+          }));
         })
         .catch((error) => {
           console.error('Token verification error:', error);
-          // If token is invalid, clear it
           localStorage.removeItem("token");
           setAuthState({
             isAuthenticated: false,
@@ -45,7 +54,13 @@ const AuthProvider = ({ children }) => {
           });
         });
     } else {
-      setAuthState(prev => ({ ...prev, loading: false }));
+      // For login/register pages or no token, don't authenticate
+      setAuthState({
+        isAuthenticated: false,
+        token: null,
+        user: null,
+        loading: false
+      });
     }
   }, []);
 
@@ -146,6 +161,36 @@ const AuthProvider = ({ children }) => {
     }
   };
 
+  // Function to check if user has valid token (for page reloads)
+  const checkAuthStatus = async () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        const response = await axios.get(`${API_URL}/auth/verifyToken`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setAuthState({
+          isAuthenticated: true,
+          token,
+          user: response.data.user,
+          loading: false
+        });
+        return true;
+      } catch (error) {
+        console.error('Token verification error:', error);
+        localStorage.removeItem("token");
+        setAuthState({
+          isAuthenticated: false,
+          token: null,
+          user: null,
+          loading: false
+        });
+        return false;
+      }
+    }
+    return false;
+  };
+
   const logout = () => {
     // Clear token and user state
     localStorage.removeItem("token");
@@ -158,7 +203,7 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ authState, login, logout, register }}>
+    <AuthContext.Provider value={{ authState, login, logout, register, checkAuthStatus }}>
       {children}
     </AuthContext.Provider>
   );

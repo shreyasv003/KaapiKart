@@ -19,10 +19,11 @@ import Dashboard from './components/admin/Dashboard';
 import theme from './theme';
 
 const PrivateRoute = ({ children, adminOnly = false }) => {
-  const { authState, loading } = useAuth();
-  const { isAuthenticated, user } = authState;
+  const { authState } = useAuth();
+  const { isAuthenticated, user, loading } = authState;
 
-  if (loading) {
+  // Only show loading if user is not authenticated and we're still checking
+  if (!isAuthenticated && loading) {
     return <div>Loading...</div>;
   }
 
@@ -54,14 +55,12 @@ const AppRoutes = () => {
       <Routes>
         <Route 
           path="/" 
-          element={
-            isAuthenticated ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />
-          } 
+          element={<Navigate to="/login" replace />}
         />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
         <Route path="/menu" element={<PrivateRoute><CoffeeMenu /></PrivateRoute>} />
         <Route path="/cart" element={<PrivateRoute><CartPage /></PrivateRoute>} />
-        <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/orders" element={<PrivateRoute><OrdersPage /></PrivateRoute>} />
