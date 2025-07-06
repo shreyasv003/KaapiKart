@@ -17,7 +17,18 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, authState } = useAuth();
+  
+  // Redirect if user is already authenticated
+  React.useEffect(() => {
+    if (authState.isAuthenticated && !authState.loading) {
+      if (authState.user?.isAdmin) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/home');
+      }
+    }
+  }, [authState.isAuthenticated, authState.loading, authState.user, navigate]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',

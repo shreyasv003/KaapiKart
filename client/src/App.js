@@ -39,13 +39,25 @@ const PrivateRoute = ({ children, adminOnly = false }) => {
 
 const AppRoutes = () => {
   const location = useLocation();
+  const { authState } = useAuth();
+  const { isAuthenticated, loading } = authState;
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/admin/login';
+
+  // Show loading while checking authentication
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <>
       {!isAuthPage && <Navbar />}
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route 
+          path="/" 
+          element={
+            isAuthenticated ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />
+          } 
+        />
         <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
         <Route path="/menu" element={<PrivateRoute><CoffeeMenu /></PrivateRoute>} />
         <Route path="/cart" element={<PrivateRoute><CartPage /></PrivateRoute>} />

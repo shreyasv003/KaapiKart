@@ -27,11 +27,12 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Clear any existing authentication when login page loads
+  // Redirect if user is already authenticated
   React.useEffect(() => {
-    // Clear any existing token to ensure fresh login
-    localStorage.removeItem('token');
-  }, []);
+    if (authState.isAuthenticated && !authState.loading) {
+      navigate('/home');
+    }
+  }, [authState.isAuthenticated, authState.loading, navigate]);
 
 
   const validateForm = () => {

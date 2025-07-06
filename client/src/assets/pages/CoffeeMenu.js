@@ -37,7 +37,7 @@ const CoffeeMenu = () => {
         // Initialize quantities for all products
         const initialQuantities = {};
         response.data.forEach(product => {
-          initialQuantities[product._id] = 1;
+          initialQuantities[product._id] = 0;
         });
         setQuantities(initialQuantities);
         setLoading(false);
@@ -54,21 +54,28 @@ const CoffeeMenu = () => {
   }, []);
 
   const handleAddToCart = (product) => {
-    addToCart({
-      _id: product._id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      quantity: quantity
-    });
-    setSnackbar({ open: true, message: `${product.name} added to cart!` });
-    setQuantity(1); // Reset quantity after adding to cart
+    const currentQuantity = quantities[product._id] || 0;
+    if (currentQuantity > 0) {
+      addToCart({
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        quantity: currentQuantity
+      });
+      setSnackbar({ open: true, message: `${product.name} added to cart!` });
+      // Reset quantity to 0 after adding to cart
+      setQuantities(prev => ({
+        ...prev,
+        [product._id]: 0
+      }));
+    }
   };
 
   const handleQuantityChange = (productId, change) => {
     setQuantities(prev => ({
       ...prev,
-      [productId]: Math.max(1, (prev[productId] || 1) + change)
+      [productId]: Math.max(0, (prev[productId] || 0) + change)
     }));
   };
 
@@ -142,18 +149,36 @@ const CoffeeMenu = () => {
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: 'rgba(70, 70, 70, 0.7)',
-                    color: '#fff',
+                    color: '#fff !important',
                     '&:hover fieldset': {
                       borderColor: '#8B4513',
                     },
                     '&.Mui-focused fieldset': {
                       borderColor: '#8B4513',
                     },
+                    '&.Mui-focused': {
+                      color: '#fff !important',
+                    },
                   },
                   '& .MuiInputLabel-root': {
                     color: '#fff',
                     '&.Mui-focused': {
-                      color: '#8B4513',
+                      color: '#fff',
+                    },
+                  },
+                  '& .MuiInputBase-input': {
+                    color: '#fff !important',
+                    '&:focus': {
+                      color: '#fff !important',
+                    },
+                    '&.Mui-focused': {
+                      color: '#fff !important',
+                    },
+                  },
+                  '& .MuiOutlinedInput-input': {
+                    color: '#fff !important',
+                    '&:focus': {
+                      color: '#fff !important',
                     },
                   },
                 }}
@@ -187,7 +212,12 @@ const CoffeeMenu = () => {
             </Grid>
             <Grid item xs={12} md={4}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: '#fff' }}>Category</InputLabel>
+                <InputLabel sx={{ 
+                  color: '#fff',
+                  '&.Mui-focused': {
+                    color: '#fff',
+                  },
+                }}>Category</InputLabel>
                 <Select
                   value={category}
                   label="Category"
@@ -205,6 +235,15 @@ const CoffeeMenu = () => {
                     },
                     '& .MuiSelect-icon': {
                       color: '#fff',
+                    },
+                    '&.Mui-focused': {
+                      color: '#fff',
+                    },
+                    '& .MuiSelect-select': {
+                      color: '#fff',
+                      '&:focus': {
+                        color: '#fff',
+                      },
                     },
                   }}
                 >
@@ -267,12 +306,12 @@ const CoffeeMenu = () => {
                     <IconButton 
                       size="small" 
                       onClick={() => handleQuantityChange(item._id, -1)}
-                      disabled={quantities[item._id] <= 1}
+                      disabled={quantities[item._id] <= 0}
                       sx={{ color: '#fff' }}
                     >
                       <Remove sx={{ color: '#fff' }} />
                     </IconButton>
-                    <Typography>{quantities[item._id] || 1}</Typography>
+                    <Typography>{quantities[item._id] || 0}</Typography>
                     <IconButton 
                       size="small" 
                       onClick={() => handleQuantityChange(item._id, 1)}
@@ -285,7 +324,13 @@ const CoffeeMenu = () => {
                     variant="contained"
                     color="primary"
                     onClick={() => handleAddToCart(item)}
+                    disabled={quantities[item._id] <= 0}
                     startIcon={<AddShoppingCart />}
+                    sx={{
+                      opacity: quantities[item._id] <= 0 ? 0.5 : 1,
+                      visibility: 'visible',
+                      display: 'inline-flex',
+                    }}
                   >
                     Add to Cart
                   </Button>

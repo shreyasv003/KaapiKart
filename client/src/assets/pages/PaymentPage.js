@@ -465,17 +465,57 @@ const PaymentPage = () => {
                                     value={expiryMonth}
                                     onChange={e => setExpiryMonth(e.target.value)}
                                     InputProps={{
-                                      sx: { color: '#fff',
+                                      sx: { 
+                                        color: '#fff',
+                                        bgcolor: 'rgba(70, 70, 70, 0.7)',
                                         '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
                                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                                        '& .MuiSelect-icon': {
+                                          color: '#fff',
+                                        },
                                       }
                                     }}
-                                    InputLabelProps={{ sx: { color: '#fff', '&.Mui-focused': { color: '#fff' } } }}
-                                    SelectProps={{ native: true }}
-                                    sx={{ minWidth: 70 }}
+                                    InputLabelProps={{ 
+                                      sx: { 
+                                        color: '#fff', 
+                                        '&.Mui-focused': { color: '#fff' } 
+                                      } 
+                                    }}
+                                    SelectProps={{ 
+                                      native: true,
+                                      MenuProps: {
+                                        PaperProps: {
+                                          sx: {
+                                            bgcolor: 'rgba(70, 70, 70, 0.9)',
+                                            '& .MuiMenuItem-root': {
+                                              color: '#fff',
+                                            },
+                                          },
+                                        },
+                                      },
+                                    }}
+                                    sx={{ 
+                                      minWidth: 70,
+                                      '& .MuiSelect-select': {
+                                        color: '#fff',
+                                        bgcolor: 'rgba(70, 70, 70, 0.7)',
+                                      },
+                                      '& .MuiNativeSelect-select': {
+                                        color: '#fff',
+                                        bgcolor: 'rgba(70, 70, 70, 0.7)',
+                                      },
+                                      '& option': {
+                                        bgcolor: 'rgba(70, 70, 70, 0.9)',
+                                        color: '#fff',
+                                      },
+                                    }}
                                   >
-                                    <option value="">MM</option>
-                                    {months.map(m => <option key={m} value={m}>{m}</option>)}
+                                    <option value="" style={{ backgroundColor: 'rgba(70, 70, 70, 0.9)', color: '#fff' }}>MM</option>
+                                    {months.map(m => (
+                                      <option key={m} value={m} style={{ backgroundColor: 'rgba(70, 70, 70, 0.9)', color: '#fff' }}>
+                                        {m}
+                                      </option>
+                                    ))}
                                   </TextField>
                                   <TextField
                                     select
@@ -483,17 +523,57 @@ const PaymentPage = () => {
                                     value={expiryYear}
                                     onChange={e => setExpiryYear(e.target.value)}
                                     InputProps={{
-                                      sx: { color: '#fff',
+                                      sx: { 
+                                        color: '#fff',
+                                        bgcolor: 'rgba(70, 70, 70, 0.7)',
                                         '& .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
                                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                                        '& .MuiSelect-icon': {
+                                          color: '#fff',
+                                        },
                                       }
                                     }}
-                                    InputLabelProps={{ sx: { color: '#fff', '&.Mui-focused': { color: '#fff' } } }}
-                                    SelectProps={{ native: true }}
-                                    sx={{ minWidth: 70 }}
+                                    InputLabelProps={{ 
+                                      sx: { 
+                                        color: '#fff', 
+                                        '&.Mui-focused': { color: '#fff' } 
+                                      } 
+                                    }}
+                                    SelectProps={{ 
+                                      native: true,
+                                      MenuProps: {
+                                        PaperProps: {
+                                          sx: {
+                                            bgcolor: 'rgba(70, 70, 70, 0.9)',
+                                            '& .MuiMenuItem-root': {
+                                              color: '#fff',
+                                            },
+                                          },
+                                        },
+                                      },
+                                    }}
+                                    sx={{ 
+                                      minWidth: 70,
+                                      '& .MuiSelect-select': {
+                                        color: '#fff',
+                                        bgcolor: 'rgba(70, 70, 70, 0.7)',
+                                      },
+                                      '& .MuiNativeSelect-select': {
+                                        color: '#fff',
+                                        bgcolor: 'rgba(70, 70, 70, 0.7)',
+                                      },
+                                      '& option': {
+                                        bgcolor: 'rgba(70, 70, 70, 0.9)',
+                                        color: '#fff',
+                                      },
+                                    }}
                                   >
-                                    <option value="">YY</option>
-                                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                    <option value="" style={{ backgroundColor: 'rgba(70, 70, 70, 0.9)', color: '#fff' }}>YY</option>
+                                    {years.map(y => (
+                                      <option key={y} value={y} style={{ backgroundColor: 'rgba(70, 70, 70, 0.9)', color: '#fff' }}>
+                                        {y}
+                                      </option>
+                                    ))}
                                   </TextField>
                                   {isValidExpiry() ?
                                     <CheckCircleIcon sx={{ color: 'limegreen', alignSelf: 'center' }} /> :

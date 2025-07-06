@@ -17,7 +17,14 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, authState } = useAuth();
+  
+  // Redirect if user is already authenticated
+  React.useEffect(() => {
+    if (authState.isAuthenticated && !authState.loading) {
+      navigate('/home');
+    }
+  }, [authState.isAuthenticated, authState.loading, navigate]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
