@@ -1,0 +1,44 @@
+{
+  "name": "kaapikart",
+  "version": "1.0.0",
+  "description": "A modern coffee shop application with React frontend and Node.js backend",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm start",
+    "client": "cd client && npm start",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client\"",
+    "server:dev": "cd server && npm run dev",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "test": "concurrently \"npm run test:server\" \"npm run test:client\"",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test",
+    "test:coverage": "concurrently \"npm run test:server:coverage\" \"npm run test:client:coverage\"",
+    "test:server:coverage": "cd server && npm run test:coverage",
+    "test:client:coverage": "cd client && npm run test:coverage",
+    "test:payment": "concurrently \"npm run test:server:payment\" \"npm run test:client:payment\"",
+    "test:server:payment": "cd server && npm run test:payment",
+    "test:client:payment": "cd client && npm run test:payment",
+    "build": "cd client && npm run build",
+    "clean": "rm -rf node_modules client/node_modules server/node_modules client/build"
+  },
+  "keywords": [
+    "coffee",
+    "shop",
+    "react",
+    "nodejs",
+    "express",
+    "mongodb",
+    "payment",
+    "ecommerce"
+  ],
+  "author": "KaapiKart Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+} 
