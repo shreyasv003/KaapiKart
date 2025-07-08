@@ -37,7 +37,7 @@ export const getCardBrand = (number) => {
   return '';
 };
 
-// Card-specific validation rules
+// Enhanced card-specific validation rules with stricter requirements
 export const getCardValidationRules = (cardNumber) => {
   const brand = getCardBrand(cardNumber);
   const clean = cardNumber.replace(/\s/g, '');
@@ -48,63 +48,94 @@ export const getCardValidationRules = (cardNumber) => {
       nameMaxLength: 26,
       cvvLength: 3,
       namePattern: /^[A-Z\s]+$/,
-      description: 'Visa cards require 3-digit CVV and names with only letters and spaces'
+      description: 'Visa cards require 3-digit CVV and names with only letters and spaces',
+      cardNumberPattern: /^4\d{15}$/,
+      cardNumberDescription: 'Visa cards start with 4 and must be 16 digits'
     },
     mastercard: {
       nameMinLength: 3,
       nameMaxLength: 26,
       cvvLength: 3,
       namePattern: /^[A-Z\s]+$/,
-      description: 'MasterCard requires 3-digit CVV and names with only letters and spaces'
+      description: 'MasterCard requires 3-digit CVV and names with only letters and spaces',
+      cardNumberPattern: /^5[1-5]\d{14}$/,
+      cardNumberDescription: 'MasterCard numbers start with 51-55 and must be 16 digits'
     },
     amex: {
       nameMinLength: 3,
       nameMaxLength: 20,
       cvvLength: 4,
       namePattern: /^[A-Z\s]+$/,
-      description: 'American Express requires 4-digit CVV and shorter names'
+      description: 'American Express requires 4-digit CVV and shorter names',
+      cardNumberPattern: /^(34|37)\d{13}$/,
+      cardNumberDescription: 'American Express numbers start with 34 or 37 and must be 15 digits'
     },
     discover: {
       nameMinLength: 3,
       nameMaxLength: 26,
       cvvLength: 3,
       namePattern: /^[A-Z\s]+$/,
-      description: 'Discover cards require 3-digit CVV and names with only letters and spaces'
+      description: 'Discover cards require 3-digit CVV and names with only letters and spaces',
+      cardNumberPattern: /^(6011|65|64[4-9])\d{12,14}$/,
+      cardNumberDescription: 'Discover cards start with 6011, 65, or 64[4-9]'
     },
     rupay: {
       nameMinLength: 3,
       nameMaxLength: 26,
       cvvLength: 3,
       namePattern: /^[A-Z\s]+$/,
-      description: 'RuPay cards require 3-digit CVV and names with only letters and spaces'
+      description: 'RuPay cards require 3-digit CVV and names with only letters and spaces',
+      cardNumberPattern: /^(60|6521|6522)\d{13,14}$/,
+      cardNumberDescription: 'RuPay cards start with 60, 6521, or 6522'
     }
   };
   
   return rules[brand] || rules.visa; // Default to Visa rules if brand not recognized
 };
 
-// Enhanced validation functions
+// Enhanced validation functions with format validation only
 export const validateCardHolderName = (name, cardNumber) => {
+  if (!cardNumber || cardNumber.replace(/\s/g, '').length < 13) {
+    return { valid: false, message: 'Please enter a valid card number first' };
+  }
+  
   const rules = getCardValidationRules(cardNumber);
   
-  if (!name || name.length < rules.nameMinLength || name.length > rules.nameMaxLength) {
+  if (!name || name.trim().length === 0) {
+    return { valid: false, message: 'Card holder name is required' };
+  }
+  
+  if (name.trim().length < rules.nameMinLength || name.trim().length > rules.nameMaxLength) {
     return { valid: false, message: `Name must be ${rules.nameMinLength}-${rules.nameMaxLength} characters` };
   }
   
-  if (!rules.namePattern.test(name)) {
+  if (!rules.namePattern.test(name.trim())) {
     return { valid: false, message: 'Name can only contain letters and spaces' };
+  }
+  
+  // Check for consecutive spaces
+  if (/\s{2,}/.test(name)) {
+    return { valid: false, message: 'Name cannot contain consecutive spaces' };
   }
   
   return { valid: true, message: 'Valid name' };
 };
 
 export const validateCVV = (cvv, cardNumber) => {
+  if (!cardNumber || cardNumber.replace(/\s/g, '').length < 13) {
+    return { valid: false, message: 'Please enter a valid card number first' };
+  }
+  
   const rules = getCardValidationRules(cardNumber);
   
-  if (!cvv || cvv.length !== rules.cvvLength) {
+  if (!cvv || cvv.trim().length === 0) {
+    return { valid: false, message: 'CVV is required' };
+  }
+  
+  if (cvv.length !== rules.cvvLength) {
     return { 
       valid: false, 
-      message: `${getCardBrand(cardNumber).toUpperCase()} requires ${rules.cvvLength}-digit CVV` 
+      message: `${getCardBrand(cardNumber).toUpperCase()} requires exactly ${rules.cvvLength} digits` 
     };
   }
   
@@ -116,6 +147,10 @@ export const validateCVV = (cvv, cardNumber) => {
 };
 
 export const validateExpiryDate = (month, year, cardNumber) => {
+  if (!cardNumber || cardNumber.replace(/\s/g, '').length < 13) {
+    return { valid: false, message: 'Please enter a valid card number first' };
+  }
+  
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const expiryYear = parseInt('20' + year);
@@ -141,16 +176,36 @@ export const validateExpiryDate = (month, year, cardNumber) => {
   return { valid: true, message: 'Valid expiry date' };
 };
 
+// New function to validate card number format for specific brand
+export const validateCardNumberFormat = (cardNumber) => {
+  const clean = cardNumber.replace(/\s/g, '');
+  const brand = getCardBrand(clean);
+  const rules = getCardValidationRules(clean);
+  
+  if (!brand) {
+    return { valid: false, message: 'Invalid card type. Please use Visa, MasterCard, American Express, Discover, or RuPay' };
+  }
+  
+  if (!rules.cardNumberPattern.test(clean)) {
+    return { valid: false, message: rules.cardNumberDescription };
+  }
+  
+  if (!validateCardNumber(clean)) {
+    return { valid: false, message: 'Invalid card number (failed checksum validation)' };
+  }
+  
+  return { valid: true, message: `Valid ${brand.toUpperCase()} card number` };
+};
+
 export const formatCardNumber = (value) => {
   return value.replace(/[^0-9]/g, '').replace(/(.{4})/g, '$1 ').trim();
 };
 
-// Test payment processing functions
+// Enhanced payment processing with format validation only
 export const processCardPayment = async (paymentData) => {
   // Simulate payment processing delay
   await new Promise(resolve => setTimeout(resolve, 1000));
   
-  // Simulate payment success/failure based on card number
   const cardNumber = paymentData.cardNumber.replace(/\s/g, '');
   
   // Check if it's a test card number
@@ -160,38 +215,28 @@ export const processCardPayment = async (paymentData) => {
     throw new Error('Payment failed: Test card numbers are not accepted. Please use a real card number.');
   }
   
-  // Validate card number format and Luhn algorithm
-  if (!validateCardNumber(cardNumber)) {
-    throw new Error('Payment failed: Invalid card number. Please check and try again.');
+  // Validate card number format and brand
+  const cardNumberValidation = validateCardNumberFormat(cardNumber);
+  if (!cardNumberValidation.valid) {
+    throw new Error(`Payment failed: ${cardNumberValidation.message}`);
   }
   
-  // Check if it's a realistic card number (starts with valid prefixes)
-  const validPrefixes = [
-    '4', // Visa
-    '5', // MasterCard
-    '34', '37', // American Express
-    '6' // Discover, RuPay
-  ];
-  
-  const hasValidPrefix = validPrefixes.some(prefix => cardNumber.startsWith(prefix));
-  
-  if (!hasValidPrefix) {
-    throw new Error('Payment failed: Invalid card type. Please use a valid Visa, MasterCard, American Express, or Discover card.');
-  }
-  
-  // Validate expiry date
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
-  const expiryYear = parseInt('20' + paymentData.expiryYear);
-  const expiryMonth = parseInt(paymentData.expiryMonth);
-  
-  if (expiryYear < currentYear || (expiryYear === currentYear && expiryMonth < currentMonth)) {
-    throw new Error('Payment failed: Card has expired. Please use a valid card.');
+  // Validate card holder name
+  const nameValidation = validateCardHolderName(paymentData.cardholderName, cardNumber);
+  if (!nameValidation.valid) {
+    throw new Error(`Payment failed: ${nameValidation.message}`);
   }
   
   // Validate CVV
-  if (!/^\d{3,4}$/.test(paymentData.cvv)) {
-    throw new Error('Payment failed: Invalid CVV. Please enter a valid 3 or 4 digit CVV.');
+  const cvvValidation = validateCVV(paymentData.cvv, cardNumber);
+  if (!cvvValidation.valid) {
+    throw new Error(`Payment failed: ${cvvValidation.message}`);
+  }
+  
+  // Validate expiry date
+  const expiryValidation = validateExpiryDate(paymentData.expiryMonth, paymentData.expiryYear, cardNumber);
+  if (!expiryValidation.valid) {
+    throw new Error(`Payment failed: ${expiryValidation.message}`);
   }
   
   // For valid card numbers, simulate success
@@ -225,10 +270,10 @@ export const processUPIPayment = async (paymentData) => {
       amount: paymentData.amount,
       currency: 'INR',
       upiId: paymentData.upiId,
-      message: 'UPI payment processed successfully'
+      message: 'UPI payment processed successfully with real UPI ID'
     };
   } else {
-    throw new Error('Payment failed: Invalid UPI ID format');
+    throw new Error('Payment failed: Invalid UPI ID format. Please enter a valid UPI ID (e.g., yourname@upi)');
   }
 };
 
@@ -258,6 +303,7 @@ export default {
   validateCardHolderName,
   validateCVV,
   validateExpiryDate,
+  validateCardNumberFormat,
   getCardValidationRules,
   getCardBrand,
   formatCardNumber,

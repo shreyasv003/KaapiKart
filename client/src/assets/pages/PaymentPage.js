@@ -51,6 +51,7 @@ import {
   validateCardHolderName,
   validateCVV,
   validateExpiryDate,
+  validateCardNumberFormat,
   getCardValidationRules,
   processCardPayment,
   processUPIPayment,
@@ -104,50 +105,56 @@ const PaymentPage = () => {
     return '';
   };
   const isValidCardNumber = (num) => {
-    const s = num.replace(/\s/g, '');
-    if (!/^\d{16}$/.test(s)) return false;
-    let sum = 0, shouldDouble = false;
-    for (let i = s.length - 1; i >= 0; i--) {
-      let digit = parseInt(s[i]);
-      if (shouldDouble) {
-        digit *= 2;
-        if (digit > 9) digit -= 9;
-      }
-      sum += digit;
-      shouldDouble = !shouldDouble;
-    }
-    return sum % 10 === 0;
+    const validation = validateCardNumberFormat(num);
+    return validation.valid;
   };
+  
+  const getCardNumberValidation = (num) => {
+    return validateCardNumberFormat(num);
+  };
+  
   const isValidName = (name) => {
-    if (!cardDetails.cardNumber) return name.length > 2;
+    if (!cardDetails.cardNumber || cardDetails.cardNumber.replace(/\s/g, '').length < 13) {
+      return name.length > 2;
+    }
     const validation = validateCardHolderName(name, cardDetails.cardNumber);
     return validation.valid;
   };
   
   const getCardNameValidation = (name) => {
-    if (!cardDetails.cardNumber) return { valid: name.length > 2, message: '' };
+    if (!cardDetails.cardNumber || cardDetails.cardNumber.replace(/\s/g, '').length < 13) {
+      return { valid: name.length > 2, message: 'Please enter a valid card number first' };
+    }
     return validateCardHolderName(name, cardDetails.cardNumber);
   };
   
   const isValidExpiry = () => {
-    if (!cardDetails.cardNumber) return expiryMonth && expiryYear;
+    if (!cardDetails.cardNumber || cardDetails.cardNumber.replace(/\s/g, '').length < 13) {
+      return expiryMonth && expiryYear;
+    }
     const validation = validateExpiryDate(expiryMonth, expiryYear, cardDetails.cardNumber);
     return validation.valid;
   };
   
   const getExpiryValidation = () => {
-    if (!cardDetails.cardNumber) return { valid: expiryMonth && expiryYear, message: '' };
+    if (!cardDetails.cardNumber || cardDetails.cardNumber.replace(/\s/g, '').length < 13) {
+      return { valid: expiryMonth && expiryYear, message: 'Please enter a valid card number first' };
+    }
     return validateExpiryDate(expiryMonth, expiryYear, cardDetails.cardNumber);
   };
   
   const isValidCVV = (cvv) => {
-    if (!cardDetails.cardNumber) return /^\d{3,4}$/.test(cvv);
+    if (!cardDetails.cardNumber || cardDetails.cardNumber.replace(/\s/g, '').length < 13) {
+      return /^\d{3,4}$/.test(cvv);
+    }
     const validation = validateCVV(cvv, cardDetails.cardNumber);
     return validation.valid;
   };
   
   const getCVVValidation = (cvv) => {
-    if (!cardDetails.cardNumber) return { valid: /^\d{3,4}$/.test(cvv), message: '' };
+    if (!cardDetails.cardNumber || cardDetails.cardNumber.replace(/\s/g, '').length < 13) {
+      return { valid: /^\d{3,4}$/.test(cvv), message: 'Please enter a valid card number first' };
+    }
     return validateCVV(cvv, cardDetails.cardNumber);
   };
   const cardBrand = getCardBrand(cardDetails.cardNumber.replace(/\s/g, ''));
@@ -170,6 +177,20 @@ const PaymentPage = () => {
   const handleVerifyUpi = () => {
     setUpiVerified(isValidUpi(upiId));
   };
+  
+  // Check if all card details are valid
+  const areAllCardDetailsValid = () => {
+    if (paymentMethod !== 'card') return true;
+    
+    return (
+      isValidCardNumber(cardDetails.cardNumber) &&
+      isValidName(cardDetails.cardHolder) &&
+      isValidExpiry() &&
+      isValidCVV(cardDetails.cvv)
+    );
+  };
+  
+
 
   const handlePaymentMethodChange = (event) => {
     setPaymentMethod(event.target.value);
@@ -189,30 +210,37 @@ const PaymentPage = () => {
         return false;
       }
       
-      // Enhanced card-specific validation
-      const cardNumber = cardDetails.cardNumber.replace(/\s/g, '');
-      if (cardNumber.length < 16) {
-        setError('Please enter a valid card number');
+      // Strict card number validation first
+      const cardNumberValidation = getCardNumberValidation(cardDetails.cardNumber);
+      if (!cardNumberValidation.valid) {
+        setError(cardNumberValidation.message);
         return false;
       }
       
+      // Validate card holder name
       const nameValidation = getCardNameValidation(cardDetails.cardHolder);
       if (!nameValidation.valid) {
         setError(nameValidation.message);
         return false;
       }
       
+      // Validate expiry date
       const expiryValidation = getExpiryValidation();
       if (!expiryValidation.valid) {
         setError(expiryValidation.message);
         return false;
       }
       
+      // Validate CVV
       const cvvValidation = getCVVValidation(cardDetails.cvv);
       if (!cvvValidation.valid) {
         setError(cvvValidation.message);
         return false;
       }
+      
+      // All validations passed
+      setError('');
+      return true;
       
     } else if (paymentMethod === 'upi') {
       if (!upiId) {
@@ -519,6 +547,13 @@ const PaymentPage = () => {
                                   onFocus={() => setCardBlurred(false)}
                                   placeholder="1234 5678 9012 3456"
                                   inputProps={{ maxLength: 19 }}
+                                  helperText={cardDetails.cardNumber ? getCardNumberValidation(cardDetails.cardNumber).message : ''}
+                                  FormHelperTextProps={{
+                                    sx: { 
+                                      color: cardDetails.cardNumber ? 
+                                        (getCardNumberValidation(cardDetails.cardNumber).valid ? 'limegreen' : 'red') : '#fff'
+                                    }
+                                  }}
                                   InputProps={{
                                     sx: { color: '#fff',
                                       '& .MuiOutlinedInput-notchedOutline': {
@@ -952,7 +987,7 @@ const PaymentPage = () => {
                   fullWidth
                   size="large"
                   onClick={handlePlaceOrder}
-                  disabled={loading}
+                  disabled={loading || (paymentMethod === 'card' && !areAllCardDetailsValid())}
                   startIcon={loading ? <CircularProgress size={20} /> : null}
                   sx={{ mt: 2 }}
                 >
@@ -961,6 +996,11 @@ const PaymentPage = () => {
                   ) : loading ? 'Processing...' : `Pay ₹${(getTotal() + 40).toFixed(2)}`}
                 </Button>
                 
+                {paymentMethod === 'card' && !areAllCardDetailsValid() && (
+                  <Typography variant="caption" sx={{ display: 'block', mt: 2, textAlign: 'center', color: 'orange' }}>
+                    Please ensure all card details are correct before proceeding
+                  </Typography>
+                )}
                 <Typography variant="caption" sx={{ display: 'block', mt: 2, textAlign: 'center', color: '#fff' }}>
                   By placing this order, you agree to our terms and conditions
                 </Typography>
