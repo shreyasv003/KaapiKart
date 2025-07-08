@@ -45,6 +45,18 @@ import GPayLogo from '../../assets/images/gpay.png';
 import PhonePeLogo from '../../assets/images/phonepe.png';
 import PaytmLogo from '../../assets/images/paytm.png';
 import { QRCodeSVG } from 'qrcode.react';
+import { 
+  validateCardNumber, 
+  validateUPIId,
+  validateCardHolderName,
+  validateCVV,
+  validateExpiryDate,
+  getCardValidationRules,
+  processCardPayment,
+  processUPIPayment,
+  TEST_CARDS,
+  TEST_UPI_IDS
+} from '../../utils/paymentGateway';
 
 const API_URL = 'http://localhost:5002/api';
 
@@ -106,12 +118,38 @@ const PaymentPage = () => {
     }
     return sum % 10 === 0;
   };
-  const isValidName = (name) => name.length > 2;
-  const isValidExpiry = (exp) => {
-    if (!expiryMonth || !expiryYear) return false;
-    return true;
+  const isValidName = (name) => {
+    if (!cardDetails.cardNumber) return name.length > 2;
+    const validation = validateCardHolderName(name, cardDetails.cardNumber);
+    return validation.valid;
   };
-  const isValidCVV = (cvv) => /^\d{3,4}$/.test(cvv);
+  
+  const getCardNameValidation = (name) => {
+    if (!cardDetails.cardNumber) return { valid: name.length > 2, message: '' };
+    return validateCardHolderName(name, cardDetails.cardNumber);
+  };
+  
+  const isValidExpiry = () => {
+    if (!cardDetails.cardNumber) return expiryMonth && expiryYear;
+    const validation = validateExpiryDate(expiryMonth, expiryYear, cardDetails.cardNumber);
+    return validation.valid;
+  };
+  
+  const getExpiryValidation = () => {
+    if (!cardDetails.cardNumber) return { valid: expiryMonth && expiryYear, message: '' };
+    return validateExpiryDate(expiryMonth, expiryYear, cardDetails.cardNumber);
+  };
+  
+  const isValidCVV = (cvv) => {
+    if (!cardDetails.cardNumber) return /^\d{3,4}$/.test(cvv);
+    const validation = validateCVV(cvv, cardDetails.cardNumber);
+    return validation.valid;
+  };
+  
+  const getCVVValidation = (cvv) => {
+    if (!cardDetails.cardNumber) return { valid: /^\d{3,4}$/.test(cvv), message: '' };
+    return validateCVV(cvv, cardDetails.cardNumber);
+  };
   const cardBrand = getCardBrand(cardDetails.cardNumber.replace(/\s/g, ''));
   const cardColors = {
     visa: '#1a1f71',
@@ -146,16 +184,43 @@ const PaymentPage = () => {
 
   const validateCardDetails = () => {
     if (paymentMethod === 'card') {
-      if (!cardDetails.cardNumber || !cardDetails.cardHolder || !cardDetails.expiryDate || !cardDetails.cvv) {
+      if (!cardDetails.cardNumber || !cardDetails.cardHolder || !expiryMonth || !expiryYear || !cardDetails.cvv) {
         setError('Please fill in all card details');
         return false;
       }
-      if (cardDetails.cardNumber.length < 16) {
+      
+      // Enhanced card-specific validation
+      const cardNumber = cardDetails.cardNumber.replace(/\s/g, '');
+      if (cardNumber.length < 16) {
         setError('Please enter a valid card number');
         return false;
       }
-      if (cardDetails.cvv.length < 3) {
-        setError('Please enter a valid CVV');
+      
+      const nameValidation = getCardNameValidation(cardDetails.cardHolder);
+      if (!nameValidation.valid) {
+        setError(nameValidation.message);
+        return false;
+      }
+      
+      const expiryValidation = getExpiryValidation();
+      if (!expiryValidation.valid) {
+        setError(expiryValidation.message);
+        return false;
+      }
+      
+      const cvvValidation = getCVVValidation(cardDetails.cvv);
+      if (!cvvValidation.valid) {
+        setError(cvvValidation.message);
+        return false;
+      }
+      
+    } else if (paymentMethod === 'upi') {
+      if (!upiId) {
+        setError('Please enter UPI ID');
+        return false;
+      }
+      if (!isValidUpi(upiId)) {
+        setError('Please enter a valid UPI ID');
         return false;
       }
     }
@@ -171,6 +236,7 @@ const PaymentPage = () => {
     setError('');
 
     try {
+      // First create the order
       const orderData = {
         items: cartItems.map(item => ({
           product: item._id,
@@ -185,9 +251,9 @@ const PaymentPage = () => {
         } : null
       };
 
-      console.log('Sending order data:', orderData);
+      console.log('Creating order:', orderData);
 
-      const response = await axios.post(
+      const orderResponse = await axios.post(
         `${API_URL}/orders`,
         orderData,
         {
@@ -197,19 +263,52 @@ const PaymentPage = () => {
         }
       );
 
-      console.log('Order response:', response.data);
+      const order = orderResponse.data;
+      console.log('Order created:', order);
 
-      if (response.data) {
+      // Process payment based on method
+      let paymentResult;
+      
+      if (paymentMethod === 'card') {
+        // Process card payment
+        const paymentData = {
+          cardNumber: cardDetails.cardNumber.replace(/\s/g, ''),
+          expiryMonth: expiryMonth,
+          expiryYear: expiryYear,
+          cvv: cardDetails.cvv,
+          cardholderName: cardDetails.cardHolder,
+          amount: order.total,
+          orderId: order._id
+        };
+
+        paymentResult = await processCardPayment(paymentData);
+      } else if (paymentMethod === 'upi') {
+        // Process UPI payment
+        const paymentData = {
+          upiId: upiId,
+          amount: order.total,
+          orderId: order._id
+        };
+
+        paymentResult = await processUPIPayment(paymentData);
+      } else if (paymentMethod === 'cod') {
+        // COD doesn't require payment processing
+        paymentResult = { success: true, status: 'pending' };
+      }
+
+      if (paymentResult && paymentResult.success) {
         clearCart();
         setShowSuccess(true);
         setTimeout(() => {
           setShowSuccess(false);
           navigate('/orders');
         }, 1500);
+      } else {
+        throw new Error('Payment processing failed');
       }
     } catch (err) {
       console.error('Order placement error:', err);
-      setError(err.response?.data?.message || 'Failed to place order. Please try again.');
+      setError(err.response?.data?.message || err.message || 'Failed to place order. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -324,6 +423,28 @@ const PaymentPage = () => {
                         />
                         {paymentMethod === 'card' && (
                           <Box sx={{ ml: 4, mt: 2 }}>
+                            {/* Card Type Indicator */}
+                            {cardBrand && (
+                              <Box sx={{ 
+                                mb: 2, 
+                                p: 1, 
+                                bgcolor: 'rgba(255,255,255,0.1)', 
+                                borderRadius: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
+                              }}>
+                                <Typography variant="caption" sx={{ color: '#fff' }}>
+                                  {cardBrand.toUpperCase()} Card
+                                </Typography>
+                                {cardDetails.cardNumber && (
+                                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                                    • {getCardValidationRules(cardDetails.cardNumber).description}
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+                            
                             {/* Animated Card Flip */}
                             <Box sx={{ perspective: 1000, mb: 3 }}>
                               <animated.div style={{ ...cardSpring, width: 340, height: 200, position: 'relative' }}>
@@ -430,7 +551,14 @@ const PaymentPage = () => {
                                   label="Card Holder Name"
                                   value={cardDetails.cardHolder.toUpperCase()}
                                   onChange={e => setCardDetails(prev => ({ ...prev, cardHolder: e.target.value.toUpperCase() }))}
-                                  placeholder="John Doe"
+                                  placeholder="JOHN DOE"
+                                  helperText={cardDetails.cardHolder && cardDetails.cardNumber ? getCardNameValidation(cardDetails.cardHolder).message : ''}
+                                  FormHelperTextProps={{
+                                    sx: { 
+                                      color: cardDetails.cardHolder && cardDetails.cardNumber ? 
+                                        (getCardNameValidation(cardDetails.cardHolder).valid ? 'limegreen' : 'red') : '#fff'
+                                    }
+                                  }}
                                   InputProps={{
                                     sx: { color: '#fff',
                                       '& .MuiOutlinedInput-notchedOutline': {
@@ -578,6 +706,19 @@ const PaymentPage = () => {
                                   {isValidExpiry() ?
                                     <CheckCircleIcon sx={{ color: 'limegreen', alignSelf: 'center' }} /> :
                                     (expiryMonth || expiryYear) ? <ErrorIcon sx={{ color: 'red', alignSelf: 'center' }} /> : null}
+                                  {(expiryMonth || expiryYear) && cardDetails.cardNumber && (
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        color: getExpiryValidation().valid ? 'limegreen' : 'red',
+                                        fontSize: '0.7rem',
+                                        mt: 0.5,
+                                        display: 'block'
+                                      }}
+                                    >
+                                      {getExpiryValidation().message}
+                                    </Typography>
+                                  )}
                                 </Box>
                               </Grid>
                               <Grid item xs={6}>
@@ -586,9 +727,16 @@ const PaymentPage = () => {
                                   label="CVV"
                                   value={cardDetails.cvv}
                                   onChange={handleCardDetailsChange('cvv')}
-                                  placeholder="123"
-                                  inputProps={{ maxLength: 4 }}
+                                  placeholder={cardDetails.cardNumber ? (getCardValidationRules(cardDetails.cardNumber).cvvLength === 4 ? "1234" : "123") : "123"}
+                                  inputProps={{ maxLength: cardDetails.cardNumber ? getCardValidationRules(cardDetails.cardNumber).cvvLength : 4 }}
                                   type="password"
+                                  helperText={cardDetails.cvv && cardDetails.cardNumber ? getCVVValidation(cardDetails.cvv).message : ''}
+                                  FormHelperTextProps={{
+                                    sx: { 
+                                      color: cardDetails.cvv && cardDetails.cardNumber ? 
+                                        (getCVVValidation(cardDetails.cvv).valid ? 'limegreen' : 'red') : '#fff'
+                                    }
+                                  }}
                                   InputProps={{
                                     sx: { color: '#fff',
                                       '& .MuiOutlinedInput-notchedOutline': {
@@ -599,7 +747,9 @@ const PaymentPage = () => {
                                       },
                                     },
                                     endAdornment: (
-                                      <Tooltip title="3 or 4 digit code on the back of your card">
+                                      <Tooltip title={cardDetails.cardNumber ? 
+                                        `${getCardBrand(cardDetails.cardNumber).toUpperCase()} requires ${getCardValidationRules(cardDetails.cardNumber).cvvLength}-digit CVV` : 
+                                        "3 or 4 digit code on the back of your card"}>
                                         <span>
                                           {isValidCVV(cardDetails.cvv) ?
                                             <CheckCircleIcon sx={{ color: 'limegreen' }} /> :
@@ -654,6 +804,69 @@ const PaymentPage = () => {
                             <Typography variant="body2" sx={{ color: '#fff', mb: 2 }}>
                               Pay using UPI apps like Google Pay, PhonePe, Paytm, etc.
                             </Typography>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <TextField
+                                fullWidth
+                                label="UPI ID"
+                                value={upiId}
+                                onChange={(e) => setUpiId(e.target.value)}
+                                placeholder="yourname@upi"
+                                InputProps={{
+                                  sx: { 
+                                    color: '#fff',
+                                    bgcolor: 'rgba(70, 70, 70, 0.7)',
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                      borderColor: '#fff',
+                                    },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                      borderColor: '#fff',
+                                    },
+                                  },
+                                  endAdornment: (
+                                    <InputAdornment position="end">
+                                      {isValidUpi(upiId) ? (
+                                        <CheckCircleIcon sx={{ color: 'limegreen' }} />
+                                      ) : upiId ? (
+                                        <ErrorIcon sx={{ color: 'red' }} />
+                                      ) : null}
+                                    </InputAdornment>
+                                  )
+                                }}
+                                InputLabelProps={{
+                                  sx: { 
+                                    color: '#fff',
+                                    '&.Mui-focused': {
+                                      color: '#fff',
+                                    }
+                                  }
+                                }}
+                              />
+                            </Box>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={handleVerifyUpi}
+                                disabled={!upiId || !isValidUpi(upiId)}
+                                sx={{
+                                  color: '#fff',
+                                  borderColor: '#fff',
+                                  '&:hover': {
+                                    borderColor: '#fff',
+                                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                                  },
+                                  '&:disabled': {
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                                  }
+                                }}
+                              >
+                                Verify UPI ID
+                              </Button>
+                            </Box>
+                            
                             {upiId && upiVerified && (
                               <Box sx={{ mt: 2, mb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <Typography variant="caption" sx={{ color: '#fff', mb: 1 }}>Scan to pay (simulated):</Typography>

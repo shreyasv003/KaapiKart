@@ -14,9 +14,19 @@ const orderSchema = new mongoose.Schema({
   paymentDetails: {
     cardNumber: String,
     cardHolder: String,
+    transactionId: String,
+    gateway: String,
+    upiId: String,
+    status: String,
+    error: String
   },
   isPaid: { type: Boolean, default: false },
   paidAt: Date,
+  orderStatus: { 
+    type: String, 
+    enum: ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'],
+    default: 'pending'
+  },
 }, {
   timestamps: true
 });
